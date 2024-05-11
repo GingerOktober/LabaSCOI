@@ -4,6 +4,8 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using ScottPlot;
+using static System.Net.Mime.MediaTypeNames;
+
 namespace LabaSCOI
 {
     class Program
@@ -23,9 +25,10 @@ namespace LabaSCOI
                 Console.WriteLine("5. Максимум");
                 Console.WriteLine("6. Наложить маску");
                 Console.WriteLine("7. Обработать изображение статической функцией и получить их гистограммы");
+                Console.WriteLine("8. Бинаризация изображения");
                 int choice = Convert.ToInt32(Console.ReadLine());
                 Bitmap resultImage = null;
-                if (choice != 7)
+                if (choice != 7 && choice !=8)
                 {
                     Console.WriteLine("Введите путь к первому изображению:");
                     string imagePath1 = Console.ReadLine();
@@ -98,7 +101,7 @@ namespace LabaSCOI
                         SaveImage(resultImage, resultPath);
                     }
                 }
-                else
+                else if(choice == 7)
                 {
                     Console.WriteLine("Введите путь к изображению:");
                     string imagePath1 = Console.ReadLine();
@@ -132,6 +135,36 @@ namespace LabaSCOI
                     HistogramSave(Model2, directoryPath2, resImage);
                     Console.WriteLine("Гистограммы и обработанное изображение сохранены");
                 }
+                else
+                {
+                    Console.WriteLine("Введите путь к изображению:");
+                    string inputImagePath = Console.ReadLine();
+                    Console.WriteLine("Введите путь куда сохранять изображение:");
+                    string outputImagePath = Console.ReadLine();
+                    Console.WriteLine("Введите имя файла с расширением:");
+                    string outputImageName = Console.ReadLine();
+                    outputImagePath = Path.Combine(outputImagePath, outputImageName);
+                    Bitmap inputImage = new Bitmap(inputImagePath);
+                    if (inputImage == null)
+                    {
+                        Console.WriteLine("Введён некорректный путь к изображению");
+                        continueProcessing = true;
+                    }
+                    else
+                    {
+                        if (outputImagePath == null)
+                        {
+                            Console.WriteLine("Введён некорректный путь для сохранения файла");
+                            continueProcessing = true;
+                        }
+                        else
+                        {
+                            Bitmap outputImage = GavrilovBinarization(inputImage);
+                            outputImage.Save(outputImagePath);
+                            Console.WriteLine("Изображение успешно обработано и сохранено.");
+                        }
+                    }
+                }
                 if (continueProcessing != true) //Если в процессе обработки не было ошибок, то продолжаем работу, иначе начинаем всё сначала
                 {
                     Console.WriteLine("Результат сохранен.");
@@ -147,8 +180,44 @@ namespace LabaSCOI
                         Console.WriteLine("Все файлы сохранены. Программа завершена.");
                     }
                 }
-                
             }
+            Console.ReadLine();
+        }
+        static Bitmap GavrilovBinarization(Bitmap inputImage)
+        {
+            int width = inputImage.Width;
+            int height = inputImage.Height;
+            int sum = 0;
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    System.Drawing.Color pixel = inputImage.GetPixel(x, y);
+                    int brightness = (int)(0.3 * pixel.R + 0.59 * pixel.G + 0.11 * pixel.B); //среднее значение каналов - яркость пикселей
+                    sum += brightness;// Cумма всех пикселей
+                }
+            }
+            int threshold = sum / (width * height);// Вычисляем порог из суммы пикселей
+            Bitmap outputImage = new Bitmap(width, height);
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    System.Drawing.Color pixel = inputImage.GetPixel(x, y);
+                    int brightness = (int)(0.3 * pixel.R + 0.59 * pixel.G + 0.11 * pixel.B);
+                    // Проверяем, превышает ли яркость порог
+                    if (brightness > threshold)
+                    {
+                        outputImage.SetPixel(x, y, System.Drawing.Color.White); //максимальное значение - белый
+                    }
+                    else
+                    {
+                        outputImage.SetPixel(x, y, System.Drawing.Color.Black); //минимальное значение - черный
+                    }
+                }
+            }
+
+            return outputImage;
         }
         static int[] HistogramCreate(Bitmap image)
         {
